@@ -5,7 +5,7 @@ from starkware.cairo.common.cairo_builtins import HashBuiltin
 from starkware.starknet.common.syscalls import get_caller_address, get_contract_address
 from starkware.cairo.common.math import assert_le, assert_not_zero, assert_not_equal
 from starkware.cairo.common.math_cmp import is_le
-from starkware.cairo.common.uint256 import (Uint256, uint256_eq, uint256_le, uint256_check, uint256_lt, 
+from starkware.cairo.common.uint256 import (Uint256, uint256_eq, uint256_le, uint256_check, uint256_lt, uint256_sqrt, 
     uint256_add, uint256_sub, uint256_mul, uint256_unsigned_div_rem)
 from starkware.cairo.common.alloc import alloc
 
@@ -37,7 +37,7 @@ end
 @contract_interface
 namespace IPair:
     
-    func get_reserves() -> (reserve0: Uint256, reserve1: Uint256):
+    func get_reserves() -> (reserve0: Uint256, reserve1: Uint256, block_timestamp_last: felt):
     end
 
     func token0() -> (address: felt):
@@ -73,7 +73,7 @@ namespace IRouter:
     end
 
     func swap_exact_tokens_for_tokens(amountIn: Uint256, amountOutMin: Uint256, path_len: felt, path: felt*, 
-    to: felt, deadline: felt) -> (amounts_len: felt, amounts: felt*):
+    to: felt, deadline: felt) -> (amounts_len: felt, amounts: Uint256*):
     end
 end
 
@@ -200,12 +200,12 @@ func zap_in{
     IERC20.transferFrom(contract_address=from_token_address, sender=sender, recipient=contract_address, amount=amount)
 
     let goodwill:Uint256 = _goodwill.read()
-    let goodwill_amount:Uint256 = uint256_mul(amount,goodwill)
-    let (goodwill_portion:Uint256,_) = uint256_unsigned_div_rem(goodwill_amount,Uint256(10000,0))
+    let (goodwill_amount_low:Uint256,goodwill_amount_high:Uint256)  = uint256_mul(amount,goodwill)
+    let (goodwill_portion:Uint256,_) = uint256_unsigned_div_rem(goodwill_amount_low,Uint256(10000,0))
     let amount_to_invest:Uint256 = uint256_sub(amount,goodwill_portion)
 
     # # let (lp_bought) = _perform_zap_in(from_token_address, pair_address, amount_to_invest, swap_target, swap_data, transfer_residual)
-    let (lp_bought) = _perform_zap_in(from_token_address, pair_address, amount_to_invest, path_len, path, transfer_residual)
+    let (lp_bought:Uint256) = _perform_zap_in(from_token_address, pair_address, amount_to_invest, path_len, path, transfer_residual)
 
     let is_lp_bought_less_than_equal_min_pool_token:felt = uint256_le(min_pool_token,lp_bought)
     assert_not_zero(is_lp_bought_less_than_equal_min_pool_token)
@@ -300,15 +300,19 @@ func _perform_zap_in{
         if from_token_address == token1 :
             assert intermediate_amt = amount
             intermediate_token = from_token_address
+            tempvar syscall_ptr = syscall_ptr
+            tempvar pedersen_ptr = pedersen_ptr
+            tempvar range_check_ptr = range_check_ptr
         else:
             # let (temp_amt:Uint256,temp_token:felt) = _fill_quote(from_token_address, pair_address, amount, swap_target, swap_data) 
             let (temp_amt:Uint256,temp_token:felt) = _fill_quote(from_token_address, pair_address, amount, path_len, path)
             assert intermediate_amt = temp_amt
             intermediate_token = temp_token
+            tempvar syscall_ptr = syscall_ptr
+            tempvar pedersen_ptr = pedersen_ptr
+            tempvar range_check_ptr = range_check_ptr
         end
-        tempvar syscall_ptr = syscall_ptr
-        tempvar pedersen_ptr = pedersen_ptr
-        tempvar range_check_ptr = range_check_ptr
+        
     end
 
     local syscall_ptr: felt* = syscall_ptr
@@ -331,36 +335,56 @@ func _jedi_deposit{
     IERC20.approve(contract_address= token1, spender= router, amount= token1_bought)
 
     let (contract_address) = get_contract_address()
-    let deadline:felt = _deadline.read()
+    let (deadline:felt) = _deadline.read()
     let(amountA:Uint256, amountB:Uint256, liquidity:Uint256) = IRouter.add_liquidity(contract_address = router, tokenA = token0,tokenB = token1, amountADesired = token0_bought, amountBDesired = token1_bought, amountAMin = Uint256(1,0), amountBMin = Uint256(1,0), to = contract_address,deadline = deadline )
 
     let (sender) = get_caller_address()
 
-#   compiltion error ; reange_check_ptr revoked
-    # if transfer_residual == 1:
-    #     let (is_amountA_less_than_token0_bought) = uint256_lt(amountA,token0_bought)
-    #     if is_amountA_less_than_token0_bought == 1 :
-    #         let amount:Uint256 = uint256_sub(token0_bought,amountA)
-    #         IERC20.transfer(contract_address = token0, recipient = sender, amount = amount)
-    #         tempvar syscall_ptr = syscall_ptr
-    #         tempvar pedersen_ptr = pedersen_ptr
-    #         tempvar range_check_ptr = range_check_ptr
+    if transfer_residual == 1:
+        let (is_amountA_less_than_token0_bought) = uint256_lt(amountA,token0_bought)
+        if is_amountA_less_than_token0_bought == 1 :
+            let amount:Uint256 = uint256_sub(token0_bought,amountA)
+            IERC20.transfer(contract_address = token0, recipient = sender, amount = amount)
+            tempvar syscall_ptr = syscall_ptr
+            tempvar pedersen_ptr = pedersen_ptr
+            tempvar range_check_ptr = range_check_ptr
+        else:
+            tempvar syscall_ptr = syscall_ptr
+            tempvar pedersen_ptr = pedersen_ptr
+            tempvar range_check_ptr = range_check_ptr
 
-    #     end
-    #     let (is_amountB_less_than_token1_bought) = uint256_lt(amountB,token1_bought)
-    #     if is_amountB_less_than_token1_bought == 1 :
-    #         let amount:Uint256 = uint256_sub(token1_bought,amountB)
-    #         IERC20.transfer(contract_address = token1, recipient = sender, amount = amount)
-    #         tempvar syscall_ptr = syscall_ptr
-    #         tempvar pedersen_ptr = pedersen_ptr
-    #         tempvar range_check_ptr = range_check_ptr
+        end
 
-    #     end
-    #     local syscall_ptr: felt* = syscall_ptr
-    #     local pedersen_ptr: HashBuiltin* = pedersen_ptr
-    #     local range_check_ptr = range_check_ptr
+        local syscall_ptr: felt* = syscall_ptr
+        local pedersen_ptr: HashBuiltin* = pedersen_ptr
+
+        let (is_amountB_less_than_token1_bought) = uint256_lt(amountB,token1_bought)
+        if is_amountB_less_than_token1_bought == 1 :
+            let amount:Uint256 = uint256_sub(token1_bought,amountB)
+            IERC20.transfer(contract_address = token1, recipient = sender, amount = amount)
+            tempvar syscall_ptr = syscall_ptr
+            tempvar pedersen_ptr = pedersen_ptr
+            tempvar range_check_ptr = range_check_ptr
+
+        else:
+            tempvar syscall_ptr = syscall_ptr
+            tempvar pedersen_ptr = pedersen_ptr
+            tempvar range_check_ptr = range_check_ptr
+
+        end
+        
      
-    # end
+        tempvar syscall_ptr = syscall_ptr
+        tempvar pedersen_ptr = pedersen_ptr
+        tempvar range_check_ptr = range_check_ptr
+    else:
+        tempvar syscall_ptr = syscall_ptr
+        tempvar pedersen_ptr = pedersen_ptr
+        tempvar range_check_ptr = range_check_ptr
+
+    end
+
+    
     return (liquidity)
 end
 
@@ -400,9 +424,12 @@ func _fill_quote{
     let (deadline) = _deadline.read()
 
     IERC20.approve(contract_address= from_token_address, spender= router, amount= amount)
-    let (_,token_bought) = IRouter.swap_exact_tokens_for_tokens(contract_address = router, amountIn = amount, amountOutMin = Uint256(0, 0), path_len = path_len, path = path, to = contract_address, deadline = deadline ) 
+    let (amounts_len:felt,amounts) = IRouter.swap_exact_tokens_for_tokens(contract_address = router, amountIn = amount, amountOutMin = Uint256(0, 0), path_len = path_len, path = path, to = contract_address, deadline = deadline ) 
     
-    assert_not_zero(token_bought[path_len-1])
+    # assert_not_zero(token_bought[path_len-1])
+    let token_bought:Uint256 = [amounts + amounts_len -1]
+    let (is_token_bought_less_than_equal_zero) = uint256_le(token_bought, Uint256(0,0))
+    assert is_token_bought_less_than_equal_zero = 0
 
     let contract_token0_balance:Uint256 = IERC20.balanceOf(contract_address= token0, account=contract_address)
     let final_balance0:Uint256 = uint256_sub(contract_token0_balance, initial_balance0)
@@ -437,7 +464,7 @@ func _swap_intermediate{
     let registry:felt = _jedi_registry.read()
     let pair_address:felt = IRegistry.get_pair_for(contract_address = registry, token0= token0, token1= token1)
 
-    let (res0:Uint256, res1:Uint256) = IPair.get_reserves(contract_address = pair_address)
+    let (res0:Uint256, res1:Uint256,_) = IPair.get_reserves(contract_address = pair_address)
     local token1_bought:Uint256
     local token0_bought:Uint256
     local amount_to_swap:Uint256
@@ -479,7 +506,7 @@ func _token_to_token{
         syscall_ptr : felt*, 
         pedersen_ptr : HashBuiltin*,
         range_check_ptr
-    }(from_token: felt, to_token: felt, token_to_trade: Uint256) -> (token_bought_uint: Uint256):
+    }(from_token: felt, to_token: felt, token_to_trade: Uint256) -> (token_bought: Uint256):
     alloc_locals
 
     if from_token == to_token:
@@ -498,12 +525,13 @@ func _token_to_token{
     
     let (contract_address) = get_contract_address()
     let (deadline:felt) = _deadline.read()
-    let (_,token_bought) = IRouter.swap_exact_tokens_for_tokens(contract_address = router, amountIn = token_to_trade, amountOutMin = Uint256(0, 0), path_len = 2, path = path, to = contract_address, deadline = deadline ) # using a large deadline
-    assert_not_zero([token_bought+1])
+    let (amounts_len:felt,amounts:Uint256*) = IRouter.swap_exact_tokens_for_tokens(contract_address = router, amountIn = token_to_trade, amountOutMin = Uint256(0, 0), path_len = 2, path = path, to = contract_address, deadline = deadline ) # using a large deadline
 
-    let token_bought_uint = Uint256([token_bought+1],0)
+    let token_bought:Uint256 = [amounts + Uint256.SIZE]
+    let (is_token_bought_less_than_equal_zero) = uint256_le(token_bought, Uint256(0,0))
+    assert is_token_bought_less_than_equal_zero = 0
     
-    return (token_bought_uint)
+    return (token_bought)
 end
 
 func _calculate_swap_in_amount{
@@ -517,7 +545,7 @@ func _calculate_swap_in_amount{
     let reserve_in_mul_user_in_mul_3988000:Uint256 = uint256_mul(reserve_in, user_in_mul_3988000)
     let reserve_in_mul_3988009:Uint256 = uint256_mul(reserve_in, Uint256(3988009, 0))
     let reserve_in_mul_user_in_mul_3988000_add_reserve_in_mul_3988009:Uint256 = uint256_add(reserve_in_mul_user_in_mul_3988000, reserve_in_mul_3988009)
-    let sqrt:Uint256 = _uint256_sqrt(reserve_in_mul_user_in_mul_3988000_add_reserve_in_mul_3988009)
+    let sqrt:Uint256 = uint256_sqrt(reserve_in_mul_user_in_mul_3988000_add_reserve_in_mul_3988009)
 
     let reserve_in_mul_1997:Uint256 = uint256_mul(reserve_in, Uint256(1997, 0))
     let sqrt_sub_reserve_in_mul_1997:Uint256 = uint256_sub(sqrt, reserve_in_mul_1997)
@@ -529,55 +557,90 @@ func _calculate_swap_in_amount{
 end 
 
 
-func _uint256_sqrt{
-        syscall_ptr : felt*, 
-        pedersen_ptr : HashBuiltin*,
-        range_check_ptr
-    }(y: Uint256) -> (z: Uint256):
-    alloc_locals
-    uint256_check(y)
-    local z: Uint256
-    let (is_y_greater_than_3) = uint256_lt(Uint256(3, 0), y)
-    if is_y_greater_than_3 == 1:
-        let (y_div_2: Uint256, _) = uint256_unsigned_div_rem(y, Uint256(2, 0))
-        let (x: Uint256, is_overflow) = uint256_add(y_div_2, Uint256(1, 0))
-        assert (is_overflow) = 0
-        let (final_z: Uint256) = _build_sqrt(x, y, y)
-        assert z = final_z
-        tempvar syscall_ptr = syscall_ptr
-        tempvar pedersen_ptr = pedersen_ptr
-        tempvar range_check_ptr = range_check_ptr
-    else:
-        let (is_y_equal_to_0) =  uint256_eq(y, Uint256(0, 0))
-        if is_y_equal_to_0 == 1:
-            assert z = Uint256(0, 0)
-        else:
-            assert z = Uint256(1, 0)
-        end
-        tempvar syscall_ptr = syscall_ptr
-        tempvar pedersen_ptr = pedersen_ptr
-        tempvar range_check_ptr = range_check_ptr
-    end
-    return (z)
-end
+# func _calculate_swap_in_amount{
+#         syscall_ptr : felt*, 
+#         pedersen_ptr : HashBuiltin*,
+#         range_check_ptr
+#     }(reserve_in: Uint256, user_in: Uint256) -> (amount_to_swap: Uint256):
+#     alloc_locals
 
-func _build_sqrt{
-        syscall_ptr : felt*, 
-        pedersen_ptr : HashBuiltin*,
-        range_check_ptr
-    }(x: Uint256, y: Uint256, z: Uint256) -> (res: Uint256):
-    alloc_locals
-    let (is_x_less_than_z) = uint256_lt(x, z)
-    if is_x_less_than_z == 1:
-        let (y_div_x: Uint256, _) = uint256_unsigned_div_rem(y, x)
-        let (temp_x_2: Uint256, is_overflow) = uint256_add(y_div_x, x)
-        assert (is_overflow) = 0
-        let (temp_x: Uint256, _) = uint256_unsigned_div_rem(temp_x_2, Uint256(2, 0))
-        return _build_sqrt(temp_x, y, x)
-    else:
-        return (z)
-    end
-end
+#     let (user_in_mul_3988000_low:Uint256,user_in_mul_3988000_high:Uint256) = uint256_mul(user_in, Uint256(3988000, 0))
+#     let (is_user_in_mul_3988000_high_equal_to_zero) =  uint256_eq(user_in_mul_3988000_high, Uint256(0, 0))
+#     assert is_user_in_mul_3988000_high_equal_to_zero = 1
+
+#     let (reserve_in_mul_user_in_mul_3988000_low:Uint256, reserve_in_mul_user_in_mul_3988000_high:Uint256) = uint256_mul(reserve_in, user_in_mul_3988000_low)
+#     let (is_reserve_in_mul_user_in_mul_3988000_high_equal_to_zero) =  uint256_eq(reserve_in_mul_user_in_mul_3988000_high, Uint256(0, 0))
+#     assert is_reserve_in_mul_user_in_mul_3988000_high_equal_to_zero = 1
+
+#     let (reserve_in_mul_3988009_low:Uint256, reserve_in_mul_3988009_high:Uint256) = uint256_mul(reserve_in, Uint256(3988009, 0))
+#     let (is_reserve_in_mul_3988009_high_equal_to_zero) =  uint256_eq(reserve_in_mul_3988009_high, Uint256(0, 0))
+#     assert is_reserve_in_mul_3988009_high_equal_to_zero = 1
+
+#     let reserve_in_mul_user_in_mul_3988000_add_reserve_in_mul_3988009:Uint256 = uint256_add(reserve_in_mul_user_in_mul_3988000_low, reserve_in_mul_3988009_low)
+#     let sqrt:Uint256 = _uint256_sqrt(reserve_in_mul_user_in_mul_3988000_add_reserve_in_mul_3988009)
+
+#     let (reserve_in_mul_1997_low:Uint256,reserve_in_mul_1997_high:Uint256) = uint256_mul(reserve_in, Uint256(1997, 0))
+#     let (reserve_in_mul_1997_high_equal_to_zero) =  uint256_eq(reserve_in_mul_1997_high, Uint256(0, 0))
+#     assert reserve_in_mul_1997_high_equal_to_zero = 1
+
+#     let sqrt_sub_reserve_in_mul_1997:Uint256 = uint256_sub(sqrt, reserve_in_mul_1997_low)
+
+#     let (amount_to_swap:Uint256,_) = uint256_unsigned_div_rem(sqrt_sub_reserve_in_mul_1997,Uint256(1994, 0))
+
+#     return (amount_to_swap)
+
+# end 
+
+
+# func _uint256_sqrt{
+#         syscall_ptr : felt*, 
+#         pedersen_ptr : HashBuiltin*,
+#         range_check_ptr
+#     }(y: Uint256) -> (z: Uint256):
+#     alloc_locals
+#     uint256_check(y)
+#     local z: Uint256
+#     let (is_y_greater_than_3) = uint256_lt(Uint256(3, 0), y)
+#     if is_y_greater_than_3 == 1:
+#         let (y_div_2: Uint256, _) = uint256_unsigned_div_rem(y, Uint256(2, 0))
+#         let (x: Uint256, is_overflow) = uint256_add(y_div_2, Uint256(1, 0))
+#         assert (is_overflow) = 0
+#         let (final_z: Uint256) = _build_sqrt(x, y, y)
+#         assert z = final_z
+#         tempvar syscall_ptr = syscall_ptr
+#         tempvar pedersen_ptr = pedersen_ptr
+#         tempvar range_check_ptr = range_check_ptr
+#     else:
+#         let (is_y_equal_to_0) =  uint256_eq(y, Uint256(0, 0))
+#         if is_y_equal_to_0 == 1:
+#             assert z = Uint256(0, 0)
+#         else:
+#             assert z = Uint256(1, 0)
+#         end
+#         tempvar syscall_ptr = syscall_ptr
+#         tempvar pedersen_ptr = pedersen_ptr
+#         tempvar range_check_ptr = range_check_ptr
+#     end
+#     return (z)
+# end
+
+# func _build_sqrt{
+#         syscall_ptr : felt*, 
+#         pedersen_ptr : HashBuiltin*,
+#         range_check_ptr
+#     }(x: Uint256, y: Uint256, z: Uint256) -> (res: Uint256):
+#     alloc_locals
+#     let (is_x_less_than_z) = uint256_lt(x, z)
+#     if is_x_less_than_z == 1:
+#         let (y_div_x: Uint256, _) = uint256_unsigned_div_rem(y, x)
+#         let (temp_x_2: Uint256, is_overflow) = uint256_add(y_div_x, x)
+#         assert (is_overflow) = 0
+#         let (temp_x: Uint256, _) = uint256_unsigned_div_rem(temp_x_2, Uint256(2, 0))
+#         return _build_sqrt(temp_x, y, x)
+#     else:
+#         return (z)
+#     end
+# end
 
 
 

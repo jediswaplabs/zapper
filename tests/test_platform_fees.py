@@ -8,7 +8,7 @@ def uint(a):
     return(a, 0)
 
 @pytest.mark.asyncio
-async def test_zap_in_from_same_token(deployer,starknet,zapper, router, pair, token_0, token_1, user_1,user_2, random_acc):
+async def test_platform_fees(deployer,starknet,zapper, router, pair, token_0, token_1, user_1,user_2, random_acc):
 
     user_1_signer, user_1_account = user_1
     user_2_signer, user_2_account = user_2
@@ -53,6 +53,11 @@ async def test_zap_in_from_same_token(deployer,starknet,zapper, router, pair, to
         *uint(300)
     ])
     
+    execution_info = await zapper.goodwill().call()
+    goodwill = execution_info.result.goodwill[0]
+    
+    assert goodwill == 300
+    
     print("\nMint tokens to user_1 ")
     execution_info = await token_0.decimals().call()
     token_0_decimals = execution_info.result.decimals
@@ -75,13 +80,28 @@ async def test_zap_in_from_same_token(deployer,starknet,zapper, router, pair, to
         2, 
         token_0.contract_address, 
         token_1.contract_address,  
-        0
+        1
     ])
     
+    lp_bought = execution_info.result.response[0]
+    print(f"{lp_bought}")
+    
+    execution_info = await pair.balanceOf(user_1_account.contract_address).call()
+    user_1_pair_balance = execution_info.result.balance[0]
+    print(f"{user_1_pair_balance}")
+    
+    # all lp tokens are transfered to user_1
+    assert lp_bought == user_1_pair_balance
     
     execution_info = await token_0.balanceOf(zapper.contract_address).call()
     zapper_token0_balance = execution_info.result.balance[0]
     print(f"{zapper_token0_balance}")
     
-    # On solving transfer Residual compilation error it will pass
-    # assert zapper_token0_balance == (zap_in_amount*300)/10000
+    execution_info = await token_1.balanceOf(zapper.contract_address).call()
+    zapper_token1_balance = execution_info.result.balance[0]
+    print(f"{zapper_token1_balance}")
+    
+    # Residual is transfered back to the user(except the fees)
+    assert zapper_token0_balance == (zap_in_amount*300)/10000
+    assert zapper_token1_balance == 0
+    

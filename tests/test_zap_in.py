@@ -70,7 +70,7 @@ async def test_zap_in_from_same_token(deployer,starknet,zapper, router, pair, to
         2, 
         token_0.contract_address, 
         token_1.contract_address,  
-        0
+        1
     ])
     
     
@@ -82,6 +82,18 @@ async def test_zap_in_from_same_token(deployer,starknet,zapper, router, pair, to
     print(f"{user_1_pair_balance}")
     
     assert lp_tokens == user_1_pair_balance
+    
+    execution_info = await token_0.balanceOf(zapper.contract_address).call()
+    zapper_token0_balance = execution_info.result.balance[0]
+    print(f"{zapper_token0_balance}")
+    
+    execution_info = await token_1.balanceOf(zapper.contract_address).call()
+    zapper_token1_balance = execution_info.result.balance[0]
+    print(f"{zapper_token1_balance}")
+    
+    # Residual is transfered back to the user
+    assert zapper_token0_balance == 0
+    assert zapper_token1_balance == 0
     
     # execution_info = await router.sort_tokens(token_1.contract_address, token_2.contract_address).call()
     # tokenA = execution_info.result.token0
@@ -238,7 +250,7 @@ async def test_zap_in_from_other_token(deployer,starknet,zapper, router, pair,ot
         2, 
         token_0.contract_address, 
         token_1.contract_address,  
-        0
+        1
     ])
     
     
@@ -250,4 +262,16 @@ async def test_zap_in_from_other_token(deployer,starknet,zapper, router, pair,ot
     print(f"{user_1_pair_balance}")
     
     assert lp_tokens == user_1_pair_balance
+    
+    execution_info = await token_1.balanceOf(zapper.contract_address).call()
+    zapper_token1_balance = execution_info.result.balance[0]
+    print(f"{zapper_token1_balance}")
+    
+    execution_info = await token_2.balanceOf(zapper.contract_address).call()
+    zapper_token2_balance = execution_info.result.balance[0]
+    print(f"{zapper_token2_balance}")
+    
+    # Residual is transfered back to the user
+    assert zapper_token1_balance == 0
+    assert zapper_token2_balance == 0
   
