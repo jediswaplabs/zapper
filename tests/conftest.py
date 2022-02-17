@@ -172,6 +172,23 @@ async def other_pair(starknet, deployer, pair_name, pair_symbol, token_1, token_
     return other_pair
 
 @pytest.fixture
+async def third_pair(starknet, deployer, pair_name, pair_symbol, token_0, token_2, router, registry):
+    deployer_signer, deployer_account = deployer
+    execution_info = await router.sort_tokens(token_0.contract_address, token_2.contract_address).call()
+    third_pair = await starknet.deploy(
+        "contracts/test/AMM/Pair.cairo",
+        constructor_calldata=[
+            pair_name,  # name
+            pair_symbol,  # symbol
+            execution_info.result.token0,   # token0
+            execution_info.result.token1,   # token1
+            registry.contract_address
+        ]
+    )
+    await deployer_signer.send_transaction(deployer_account, registry.contract_address, 'set_pair', [token_0.contract_address, token_2.contract_address, third_pair.contract_address])
+    return third_pair
+
+@pytest.fixture
 async def zapper(starknet, registry,router,deployer):
     deployer_signer, deployer_account = deployer
     zapper = await starknet.deploy(
@@ -183,3 +200,16 @@ async def zapper(starknet, registry,router,deployer):
         ]
     )
     return zapper
+
+@pytest.fixture
+async def zapper_out(starknet, registry,router,deployer):
+    deployer_signer, deployer_account = deployer
+    zapper_out = await starknet.deploy(
+        "contracts/ZapperOut.cairo",
+        constructor_calldata=[
+            registry.contract_address,
+            router.contract_address,
+            deployer_account.contract_address
+        ]
+    )
+    return zapper_out
