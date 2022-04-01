@@ -189,12 +189,11 @@ async def third_pair(starknet, deployer, pair_name, pair_symbol, token_0, token_
     return third_pair
 
 @pytest.fixture
-async def zapper(starknet, registry,router,deployer):
+async def zapper(starknet,router,deployer):
     deployer_signer, deployer_account = deployer
     zapper = await starknet.deploy(
         "contracts/Zapper.cairo",
         constructor_calldata=[
-            registry.contract_address,
             router.contract_address,
             deployer_account.contract_address
         ]
@@ -202,12 +201,11 @@ async def zapper(starknet, registry,router,deployer):
     return zapper
 
 @pytest.fixture
-async def zapper_out(starknet, registry,router,deployer):
+async def zapper_out(starknet,router,deployer):
     deployer_signer, deployer_account = deployer
     zapper_out = await starknet.deploy(
         "contracts/ZapperOut.cairo",
         constructor_calldata=[
-            registry.contract_address,
             router.contract_address,
             deployer_account.contract_address
         ]

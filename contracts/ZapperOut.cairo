@@ -61,7 +61,7 @@ end
 @contract_interface
 namespace IRouter:
 
-    func _registry() -> (address: felt):
+    func registry() -> (address: felt):
     end
 
 
@@ -91,7 +91,7 @@ end
 
 # @dev goodwill percentage in thousandths of a %. i.e. 500 = 0.5%
 @storage_var
-func _goodwill() -> (res: Uint256):
+func _goodwill() -> (res: felt):
 end
 
 # @dev deadline for AMM function
@@ -134,7 +134,6 @@ end
 #
 
 # @notice Contract constructor
-# @param registry Address of registry contract
 # @param router Address of router contract
 # @param initial_owner Owner of this zapper contract 
 @constructor
@@ -143,19 +142,18 @@ func constructor{
         pedersen_ptr : HashBuiltin*,
         range_check_ptr
     }(
-        registry: felt,
         router:felt,
         initial_owner:felt
     ):
     # get_caller_address() returns '0' in the constructor;
     # therefore, initial_owner parameter is included
-    assert_not_zero(registry)
     assert_not_zero(router)
     assert_not_zero(initial_owner)
 
+    let (registry: felt) = IRouter.registry(contract_address = router)
     _jedi_registry.write(registry)
     _jedi_router.write(router)
-    _goodwill.write(Uint256(0,0))
+    _goodwill.write(0)
     _owner.write(initial_owner)
     _deadline.write(999999999999999999999999)  # set to largest number possible 
     return ()
@@ -177,17 +175,6 @@ func owner{
     return (owner)
 end
 
-# @notice Get Registry address
-# @return registry
-@view
-func registry{
-        syscall_ptr : felt*, 
-        pedersen_ptr : HashBuiltin*,
-        range_check_ptr
-    }() -> (registry: felt):
-    let (registry) = _jedi_registry.read()
-    return (registry)
-end
 
 # @notice Get Router address
 # @return router
@@ -208,7 +195,7 @@ func goodwill{
         syscall_ptr : felt*, 
         pedersen_ptr : HashBuiltin*,
         range_check_ptr
-    }() -> (goodwill: Uint256):
+    }() -> (goodwill: felt):
     let (goodwill) = _goodwill.read()
     return (goodwill)
 end
@@ -225,11 +212,30 @@ func update_goodwill{
         syscall_ptr : felt*, 
         pedersen_ptr : HashBuiltin*,
         range_check_ptr
-    }( new_goodwill:Uint256):
+    }( new_goodwill: felt):
     alloc_locals
     _only_owner()
 
     _goodwill.write(new_goodwill)
+    return ()
+end
+
+
+# @notice Update router to `new_router`
+# @dev Only owner can change 
+# @param new_router the address of the new router
+@external
+func update_router{
+        syscall_ptr : felt*, 
+        pedersen_ptr : HashBuiltin*,
+        range_check_ptr
+    }( new_router:felt):
+    alloc_locals
+    _only_owner()
+
+    _jedi_router.write(new_router)
+    let (registry: felt) = IRouter.registry(contract_address = new_router)
+    _jedi_registry.write(registry)
     return ()
 end
 
@@ -335,8 +341,8 @@ func zap_out{
     end
 
 
-    let goodwill:Uint256 = _goodwill.read()
-    let (goodwill_amount:Uint256)  = uint256_checked_mul(tokens_rec,goodwill)
+    let (goodwill: felt) = _goodwill.read()
+    let (goodwill_amount:Uint256)  = uint256_checked_mul(tokens_rec,Uint256(goodwill,0))
     let (goodwill_portion:Uint256,_) = uint256_unsigned_div_rem(goodwill_amount,Uint256(10000,0))
     let tokens_rec_after_fees: Uint256 = uint256_checked_sub_lt(tokens_rec,goodwill_portion)
 

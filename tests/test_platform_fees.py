@@ -50,11 +50,11 @@ async def test_platform_fees_zap_in(deployer,starknet,zapper, router, pair, toke
 
     print("Updating fees to 3%")
     execution_info = await deployer_signer.send_transaction(deployer_account, zapper.contract_address, 'update_goodwill', [
-        *uint(300)
+        300
     ])
     
     execution_info = await zapper.goodwill().call()
-    goodwill = execution_info.result.goodwill[0]
+    goodwill = execution_info.result.goodwill
     
     assert goodwill == 300
     
@@ -151,11 +151,11 @@ async def test_platform_fees_zap_out(deployer,starknet,zapper_out, router, pair,
 
     print("Updating fees to 3%")
     execution_info = await deployer_signer.send_transaction(deployer_account, zapper_out.contract_address, 'update_goodwill', [
-        *uint(300)
+        300
     ])
     
     execution_info = await zapper_out.goodwill().call()
-    goodwill = execution_info.result.goodwill[0]
+    goodwill = execution_info.result.goodwill
     
     assert goodwill == 300
     

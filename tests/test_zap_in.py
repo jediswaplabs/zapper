@@ -7,7 +7,7 @@ import math
 def uint(a):
     return(a, 0)
 
-# test for zapIn with one of the toen from pair.
+# test for zapIn with one of the token from pair.
 @pytest.mark.asyncio
 async def test_zap_in_from_same_token(deployer,starknet,zapper, router, pair, token_0, token_1, user_1,user_2, random_acc):
     user_1_signer, user_1_account = user_1
