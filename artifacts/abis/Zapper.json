@@ -1,0 +1,222 @@
+[
+    {
+        "members": [
+            {
+                "name": "low",
+                "offset": 0,
+                "type": "felt"
+            },
+            {
+                "name": "high",
+                "offset": 1,
+                "type": "felt"
+            }
+        ],
+        "name": "Uint256",
+        "size": 2,
+        "type": "struct"
+    },
+    {
+        "data": [
+            {
+                "name": "sender",
+                "type": "felt"
+            },
+            {
+                "name": "from_token",
+                "type": "felt"
+            },
+            {
+                "name": "pool_address",
+                "type": "felt"
+            },
+            {
+                "name": "tokens_rec",
+                "type": "Uint256"
+            }
+        ],
+        "keys": [],
+        "name": "Zapped_in",
+        "type": "event"
+    },
+    {
+        "data": [
+            {
+                "name": "current_owner",
+                "type": "felt"
+            },
+            {
+                "name": "future_owner",
+                "type": "felt"
+            }
+        ],
+        "keys": [],
+        "name": "owner_change_initiated",
+        "type": "event"
+    },
+    {
+        "data": [
+            {
+                "name": "current_owner",
+                "type": "felt"
+            },
+            {
+                "name": "future_owner",
+                "type": "felt"
+            }
+        ],
+        "keys": [],
+        "name": "owner_change_completed",
+        "type": "event"
+    },
+    {
+        "inputs": [
+            {
+                "name": "router",
+                "type": "felt"
+            },
+            {
+                "name": "initial_owner",
+                "type": "felt"
+            }
+        ],
+        "name": "constructor",
+        "outputs": [],
+        "type": "constructor"
+    },
+    {
+        "inputs": [],
+        "name": "owner",
+        "outputs": [
+            {
+                "name": "owner",
+                "type": "felt"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "router",
+        "outputs": [
+            {
+                "name": "router",
+                "type": "felt"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "goodwill",
+        "outputs": [
+            {
+                "name": "goodwill",
+                "type": "felt"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "name": "new_goodwill",
+                "type": "felt"
+            }
+        ],
+        "name": "update_goodwill",
+        "outputs": [],
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "name": "new_router",
+                "type": "felt"
+            }
+        ],
+        "name": "update_router",
+        "outputs": [],
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "name": "future_owner",
+                "type": "felt"
+            }
+        ],
+        "name": "initiate_ownership_transfer",
+        "outputs": [
+            {
+                "name": "future_owner",
+                "type": "felt"
+            }
+        ],
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "accept_ownership",
+        "outputs": [],
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "name": "from_token_address",
+                "type": "felt"
+            },
+            {
+                "name": "pair_address",
+                "type": "felt"
+            },
+            {
+                "name": "amount",
+                "type": "Uint256"
+            },
+            {
+                "name": "min_pool_token",
+                "type": "Uint256"
+            },
+            {
+                "name": "path_len",
+                "type": "felt"
+            },
+            {
+                "name": "path",
+                "type": "felt*"
+            },
+            {
+                "name": "transfer_residual",
+                "type": "felt"
+            }
+        ],
+        "name": "zap_in",
+        "outputs": [
+            {
+                "name": "lp_bought",
+                "type": "Uint256"
+            }
+        ],
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "name": "tokens_len",
+                "type": "felt"
+            },
+            {
+                "name": "tokens",
+                "type": "felt*"
+            }
+        ],
+        "name": "withdraw_tokens",
+        "outputs": [],
+        "type": "function"
+    }
+]

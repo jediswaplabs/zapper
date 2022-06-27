@@ -52,8 +52,8 @@ end
 
 
 @contract_interface
-namespace IRegistry:
-    func get_pair_for(token0: felt, token1: felt) -> (pair: felt):
+namespace IFactory:
+    func get_pair(token0: felt, token1: felt) -> (pair: felt):
     end
 end
 
@@ -61,7 +61,7 @@ end
 @contract_interface
 namespace IRouter:
 
-    func registry() -> (address: felt):
+    func factory() -> (address: felt):
     end
 
 
@@ -84,9 +84,9 @@ end
 func _jedi_router() -> (address: felt):
 end
 
-# @dev Registry contract address
+# @dev factory contract address
 @storage_var
-func _jedi_registry() -> (address: felt):
+func _jedi_factory() -> (address: felt):
 end
 
 # @dev goodwill percentage in thousandths of a %. i.e. 500 = 0.5%
@@ -150,8 +150,8 @@ func constructor{
     assert_not_zero(router)
     assert_not_zero(initial_owner)
 
-    let (registry: felt) = IRouter.registry(contract_address = router)
-    _jedi_registry.write(registry)
+    let (factory: felt) = IRouter.factory(contract_address = router)
+    _jedi_factory.write(factory)
     _jedi_router.write(router)
     _goodwill.write(0)
     _owner.write(initial_owner)
@@ -234,8 +234,8 @@ func update_router{
     _only_owner()
 
     _jedi_router.write(new_router)
-    let (registry: felt) = IRouter.registry(contract_address = new_router)
-    _jedi_registry.write(registry)
+    let (factory: felt) = IRouter.factory(contract_address = new_router)
+    _jedi_factory.write(factory)
     return ()
 end
 
@@ -255,7 +255,7 @@ func initiate_ownership_transfer{
     }(future_owner: felt) -> (future_owner: felt):
     _only_owner()
     let (current_owner) = _owner.read()
-    with_attr error_message("Registry::initiate_ownership_transfer::New owner can not be zero"):
+    with_attr error_message("Zapper::initiate_ownership_transfer::New owner can not be zero"):
         assert_not_zero(future_owner)
     end
     _future_owner.write(future_owner)
@@ -274,7 +274,7 @@ func accept_ownership{
     let (current_owner) = _owner.read()
     let (future_owner) = _future_owner.read()
     let (caller) = get_caller_address()
-    with_attr error_message("Registry::accept_ownership::Only future owner can accept"):
+    with_attr error_message("ZapperOut::accept_ownership::Only future owner can accept"):
         assert future_owner = caller
     end
     _owner.write(future_owner)
@@ -294,7 +294,7 @@ func _only_owner{
     }():
     let (owner) = _owner.read()
     let (caller) = get_caller_address()
-    with_attr error_message("Registry::_only_owner::Caller must be owner"):
+    with_attr error_message("ZapperOut::_only_owner::Caller must be owner"):
         assert owner = caller
     end
     return ()

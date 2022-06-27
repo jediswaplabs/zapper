@@ -1,6 +1,5 @@
-artifacts/
-scripts/
-localhost.*
+.DS_Store
+.temp/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -132,6 +131,5 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-.DS_Store
-
-node.json
+# vscode project settings
+.vscode/

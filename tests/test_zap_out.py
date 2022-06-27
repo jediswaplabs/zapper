@@ -104,7 +104,7 @@ async def test_zap_out_to_pair_token(deployer,starknet,zapper_out, router, pair,
     
     
 @pytest.mark.asyncio
-async def test_zap_out_to_other_token(deployer,starknet,zapper_out, router, pair,other_pair,third_pair, token_0, token_1,token_2, user_1,user_2, random_acc):
+async def test_zap_out_to_other_token(deployer,starknet,zapper_out, router, pair,other_pair, token_0, token_1,token_2, user_1,user_2, random_acc):
     user_1_signer, user_1_account = user_1
     user_2_signer, user_2_account = user_2
     random_signer, random_account = random_acc
