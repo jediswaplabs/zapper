@@ -1,0 +1,16 @@
+["protostar.config"]
+protostar_version = "0.3.0"
+
+["protostar.project"]
+libs_path = "lib"
+
+["protostar.contracts"]
+contract = [
+    "./contracts/contract.cairo",
+]
+Zapper = [
+    "./contracts/Zapper.cairo",
+]
+ZapperOut = [
+    "./contracts/ZapperOut.cairo",
+]
