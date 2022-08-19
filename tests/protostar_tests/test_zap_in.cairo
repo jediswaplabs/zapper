@@ -178,7 +178,7 @@ func test_zap_in_from_same_token{syscall_ptr: felt*, pedersen_ptr : HashBuiltin*
     let (amountA : Uint256, amountB : Uint256, liquidity : Uint256) = IRouter.add_liquidity(contract_address = router_address, tokenA = token_0_address, tokenB = token_1_address, amountADesired = Uint256(amount_token_0, 0), amountBDesired = Uint256(amount_token_1, 0), amountAMin = Uint256(1,0), amountBMin = Uint256(1,0), to = user_2_address, deadline = 0)
     %{ stop_prank() %}
     
-    ### Mint tokens to user 1
+    ### Mint tokens 1 to user 1
 
     let amount_to_mint_for_user_1 = 10 * token_0_multiplier
     %{ stop_prank = start_prank(context.deployer_address, target_contract_address=ids.token_0_address) %}
@@ -205,6 +205,101 @@ func test_zap_in_from_same_token{syscall_ptr: felt*, pedersen_ptr : HashBuiltin*
     let (user_1_pair_balance) = IERC20.balanceOf(contract_address = pair_address, account = user_1_address)
     assert user_1_pair_balance = lp_bought
 
+    let (zapper_token_0_balance) = IERC20.balanceOf(contract_address = token_0_address, account = zapper_address)
+    assert zapper_token_0_balance = Uint256(0, 0)
+
+    let (zapper_token_1_balance) = IERC20.balanceOf(contract_address = token_1_address, account = zapper_address)
+    assert zapper_token_1_balance = Uint256(0, 0)
+
+    return ()
+end
+
+
+@external
+func test_zap_in_from_other_token{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}():
+    alloc_locals
+
+    local user_1_address
+    local user_2_address
+    local token_0_address
+    local token_1_address
+    local router_address
+    local pair_address
+    local zapper_address
+
+    %{  
+        ids.user_1_address = context.user_1_address
+        ids.user_2_address = context.user_2_address
+        ids.token_0_address = context.token_0_address
+        ids.token_1_address = context.token_1_address
+        ids.router_address = context.router_address
+        ids.pair_address = context.pair_address
+        ids.zapper_address = context.zapper_address
+    %}
+
+    ### Mint a lot of tokens to user 2
+
+    let (token_0_decimals) = IERC20.decimals(contract_address=token_0_address)
+    let (token_0_multiplier) = pow(10, token_0_decimals)
+    
+    let (token_1_decimals) = IERC20.decimals(contract_address=token_1_address)
+    let (token_1_multiplier) = pow(10, token_1_decimals)
+    
+    let amount_to_mint_token_0 = 100 * token_0_multiplier
+    %{ stop_prank = start_prank(context.deployer_address, target_contract_address=ids.token_0_address) %}
+    IERC20.mint(contract_address=token_0_address, recipient=user_2_address, amount=Uint256(amount_to_mint_token_0, 0))
+    %{ stop_prank() %}
+
+    let amount_to_mint_token_1 = 100 * token_1_multiplier
+    %{ stop_prank = start_prank(context.deployer_address, target_contract_address=ids.token_1_address) %}
+    IERC20.mint(contract_address=token_1_address, recipient=user_2_address, amount=Uint256(amount_to_mint_token_1, 0))
+    %{ stop_prank() %}
+    
+    ### Add liquidity on behalf of user 2
+    
+    let amount_token_0 = 2 * token_0_multiplier
+    %{ stop_prank = start_prank(ids.user_2_address, target_contract_address=ids.token_0_address) %}
+    IERC20.approve(contract_address = token_0_address, spender = router_address, amount = Uint256(amount_token_0, 0))
+    %{ stop_prank() %}
+    
+    let amount_token_1 = 4 * token_1_multiplier
+    %{ stop_prank = start_prank(ids.user_2_address, target_contract_address=ids.token_1_address) %}
+    IERC20.approve(contract_address = token_1_address, spender = router_address, amount = Uint256(amount_token_1, 0))
+    %{ stop_prank() %}
+
+    %{ stop_prank = start_prank(ids.user_2_address, target_contract_address=ids.router_address) %}
+    let (amountA : Uint256, amountB : Uint256, liquidity : Uint256) = IRouter.add_liquidity(contract_address = router_address, tokenA = token_0_address, tokenB = token_1_address, amountADesired = Uint256(amount_token_0, 0), amountBDesired = Uint256(amount_token_1, 0), amountAMin = Uint256(1,0), amountBMin = Uint256(1,0), to = user_2_address, deadline = 0)
+    %{ stop_prank() %}
+    
+    ### Mint tokens to user 1
+
+    let amount_to_mint_for_user_1 = 10 * token_1_multiplier
+    %{ stop_prank = start_prank(context.deployer_address, target_contract_address=ids.token_1_address) %}
+    IERC20.mint(contract_address=token_1_address, recipient=user_1_address, amount=Uint256(amount_to_mint_for_user_1, 0))
+    %{ stop_prank() %}
+
+    ### Zap In
+
+    let zap_in_amount = 10 * token_1_multiplier
+
+    %{ stop_prank = start_prank(ids.user_1_address, target_contract_address=ids.token_1_address) %}
+    IERC20.approve(contract_address = token_1_address, spender = zapper_address, amount = Uint256(zap_in_amount, 0))
+    %{ stop_prank() %}
+
+    %{ stop_prank = start_prank(context.user_1_address, target_contract_address=ids.zapper_address) %}
+    let path : felt* = alloc()
+    assert [path] = token_1_address
+    assert [path + 1] = token_0_address
+    let (lp_bought) = IZapper.zap_in(contract_address = zapper_address, from_token_address=token_1_address, pair_address=pair_address, amount=Uint256(zap_in_amount, 0), min_pool_token=Uint256(0, 0), path_len=2, path=path, transfer_residual=1)
+    %{ stop_prank() %}
+
+    ### Perform assertions
+
+    let (user_1_pair_balance) = IERC20.balanceOf(contract_address = pair_address, account = user_1_address)
+    assert user_1_pair_balance = lp_bought
+
+    # Assert residual is transferred back to the user
+    
     let (zapper_token_0_balance) = IERC20.balanceOf(contract_address = token_0_address, account = zapper_address)
     assert zapper_token_0_balance = Uint256(0, 0)
 
