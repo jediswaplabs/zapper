@@ -68,11 +68,11 @@ end
 func test_withdraw_zap_in{syscall_ptr: felt*, range_check_ptr}():
     alloc_locals
 
-    tempvar deployer_address
-    tempvar contract_address
-    tempvar token_0_address
-    tempvar token_1_address
-    tempvar token_2_address
+    local deployer_address
+    local contract_address
+    local token_0_address
+    local token_1_address
+    local token_2_address
 
     %{ 
         ids.deployer_address = context.deployer_address        
@@ -137,11 +137,11 @@ end
 func test_withdraw_zap_out{syscall_ptr: felt*, range_check_ptr}():
     alloc_locals
 
-    tempvar deployer_address
-    tempvar contract_address
-    tempvar token_0_address
-    tempvar token_1_address
-    tempvar token_2_address
+    local deployer_address
+    local contract_address
+    local token_0_address
+    local token_1_address
+    local token_2_address
 
     %{ 
         ids.deployer_address = context.deployer_address        
