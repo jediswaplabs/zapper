@@ -136,3 +136,7 @@ dmypy.json
 
 # vscode project settings
 .vscode/
+
+
+# git submodules
+.gitmodules
