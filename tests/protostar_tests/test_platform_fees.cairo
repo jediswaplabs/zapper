@@ -1,7 +1,7 @@
 %lang starknet
 
 from starkware.cairo.common.cairo_builtins import HashBuiltin, BitwiseBuiltin
-from starkware.cairo.common.uint256 import Uint256, uint256_add, uint256_sub
+from starkware.cairo.common.uint256 import Uint256, uint256_add, uint256_sub, uint256_unsigned_div_rem, uint256_mul
 from starkware.cairo.common.pow import pow
 from starkware.cairo.common.alloc import alloc
 
@@ -123,8 +123,8 @@ func __setup__{syscall_ptr: felt*, pedersen_ptr : HashBuiltin*,  bitwise_ptr : B
         context.user_1_address = deploy_contract("./contracts/test/Account.cairo", [context.user_1_signer]).contract_address
         context.user_2_address = deploy_contract("./contracts/test/Account.cairo", [context.user_2_signer]).contract_address
         context.deployer_address = deploy_contract("./contracts/test/Account.cairo", [context.deployer_signer]).contract_address
-        context.token_0_address = deploy_contract("lib/cairo_contracts/openzeppelin/token/erc20/presets/ERC20Mintable.cairo", [11, 1, 18, 0, 0, context.deployer_address, context.deployer_address]).contract_address
-        context.token_1_address = deploy_contract("lib/cairo_contracts/openzeppelin/token/erc20/presets/ERC20Mintable.cairo", [22, 2, 6, 0, 0, context.deployer_address, context.deployer_address]).contract_address
+        context.token_0_address = deploy_contract("lib/cairo_contracts/src/openzeppelin/token/erc20/presets/ERC20Mintable.cairo", [11, 1, 18, 0, 0, context.deployer_address, context.deployer_address]).contract_address
+        context.token_1_address = deploy_contract("lib/cairo_contracts/src/openzeppelin/token/erc20/presets/ERC20Mintable.cairo", [22, 2, 6, 0, 0, context.deployer_address, context.deployer_address]).contract_address
         context.declared_pair_class_hash = declare("./contracts/test/AMM/Pair.cairo").class_hash
         context.factory_address = deploy_contract("./contracts/test/AMM/Factory.cairo", [context.declared_pair_class_hash, context.deployer_address]).contract_address
         context.router_address = deploy_contract("./contracts/test/AMM/Router.cairo", [context.factory_address]).contract_address
@@ -306,7 +306,7 @@ func test_platform_fees_zap_out{syscall_ptr: felt*, pedersen_ptr : HashBuiltin*,
     %{ stop_prank() %}
 
     %{ stop_prank = start_prank(ids.user_1_address, target_contract_address=ids.router_address) %}
-    let (amountA : Uint256, amountB : Uint256, liquidity : Uint256) = IRouter.add_liquidity(contract_address = router_address, tokenA = token_0_address, tokenB = token_1_address, amountADesired = Uint256(amount_token_0, 0), amountBDesired = Uint256(amount_token_1, 0), amountAMin = Uint256(1,0), amountBMin = Uint256(1,0), to = user_2_address, deadline = 0)
+    let (amountA : Uint256, amountB : Uint256, liquidity : Uint256) = IRouter.add_liquidity(contract_address = router_address, tokenA = token_0_address, tokenB = token_1_address, amountADesired = Uint256(amount_token_0, 0), amountBDesired = Uint256(amount_token_1, 0), amountAMin = Uint256(1,0), amountBMin = Uint256(1,0), to = user_1_address, deadline = 0)
     %{ stop_prank() %}
     
 
@@ -334,7 +334,7 @@ func test_platform_fees_zap_out{syscall_ptr: felt*, pedersen_ptr : HashBuiltin*,
         print(ids.liquidity.low)    # 2828427123746
     %}
     # let _zap_out_amount = (liquidity / 2) * liquidity_token_multiplier
-    let zap_out_amount = Uint256(1, 0)      # Todo: Increase this to a reasonable amount
+    let (zap_out_amount,_) =  uint256_unsigned_div_rem(liquidity,Uint256(2,0))
 
     ### Zap Out
 
@@ -363,13 +363,18 @@ func test_platform_fees_zap_out{syscall_ptr: felt*, pedersen_ptr : HashBuiltin*,
     assert user_1_pair_balance = user_1_expected_pair_balance
 
     let (zapper_token_0_balance) = IERC20.balanceOf(contract_address = token_0_address, account = zapper_out_address)
+    assert zapper_token_0_balance = Uint256(0, 0)
+
 
     # Todo: Update this to roughly equal. Also is cairo capable of performing this calculation? Because zap_in_amount * 3 might
     # not be a multiple of 97. Does using uint256 utility functions help?
-    assert zapper_token_0_balance = Uint256((tokens_rec.low * 3) / 97, 0)
 
     let (zapper_token_1_balance) = IERC20.balanceOf(contract_address = token_1_address, account = zapper_out_address)
-    assert zapper_token_1_balance = Uint256(0, 0)
+    # assert zapper_token_1_balance = Uint256((tokens_rec.low * 3) / 97, 0)
+    let (tokens_rec_multiply_3,_) = uint256_mul(tokens_rec, Uint256(3,0))
+    let (goodwill_amount,_) = uint256_unsigned_div_rem(tokens_rec_multiply_3, Uint256(97,0))
+
+    assert zapper_token_1_balance = goodwill_amount
 
     return ()
 end

@@ -1,7 +1,7 @@
 %lang starknet
 
 from starkware.cairo.common.cairo_builtins import HashBuiltin, BitwiseBuiltin
-from starkware.cairo.common.uint256 import Uint256, uint256_add, uint256_sub
+from starkware.cairo.common.uint256 import Uint256, uint256_add, uint256_sub, uint256_unsigned_div_rem
 from starkware.cairo.common.pow import pow
 from starkware.cairo.common.alloc import alloc
 
@@ -98,9 +98,9 @@ func __setup__{syscall_ptr: felt*, pedersen_ptr : HashBuiltin*,  bitwise_ptr : B
         context.user_1_address = deploy_contract("./contracts/test/Account.cairo", [context.user_1_signer]).contract_address
         context.user_2_address = deploy_contract("./contracts/test/Account.cairo", [context.user_2_signer]).contract_address
         context.deployer_address = deploy_contract("./contracts/test/Account.cairo", [context.deployer_signer]).contract_address
-        context.token_0_address = deploy_contract("lib/cairo_contracts/openzeppelin/token/erc20/presets/ERC20Mintable.cairo", [11, 1, 18, 0, 0, context.deployer_address, context.deployer_address]).contract_address
-        context.token_1_address = deploy_contract("lib/cairo_contracts/openzeppelin/token/erc20/presets/ERC20Mintable.cairo", [22, 2, 6, 0, 0, context.deployer_address, context.deployer_address]).contract_address
-        context.token_2_address = deploy_contract("lib/cairo_contracts/openzeppelin/token/erc20/presets/ERC20Mintable.cairo", [22, 2, 6, 0, 0, context.deployer_address, context.deployer_address]).contract_address
+        context.token_0_address = deploy_contract("lib/cairo_contracts/src/openzeppelin/token/erc20/presets/ERC20Mintable.cairo", [11, 1, 18, 0, 0, context.deployer_address, context.deployer_address]).contract_address
+        context.token_1_address = deploy_contract("lib/cairo_contracts/src/openzeppelin/token/erc20/presets/ERC20Mintable.cairo", [22, 2, 6, 0, 0, context.deployer_address, context.deployer_address]).contract_address
+        context.token_2_address = deploy_contract("lib/cairo_contracts/src/openzeppelin/token/erc20/presets/ERC20Mintable.cairo", [22, 2, 6, 0, 0, context.deployer_address, context.deployer_address]).contract_address
         context.declared_pair_class_hash = declare("./contracts/test/AMM/Pair.cairo").class_hash
         context.factory_address = deploy_contract("./contracts/test/AMM/Factory.cairo", [context.declared_pair_class_hash, context.deployer_address]).contract_address
         context.router_address = deploy_contract("./contracts/test/AMM/Router.cairo", [context.factory_address]).contract_address
@@ -171,18 +171,18 @@ func test_zap_out_to_pair_token{syscall_ptr: felt*, pedersen_ptr : HashBuiltin*,
     
     ### Add liquidity on behalf of user 1
     
-    let amount_token_0 = 2 * token_0_multiplier
+    let amount_token_0 = 20 * token_0_multiplier
     %{ stop_prank = start_prank(ids.user_1_address, target_contract_address=ids.token_0_address) %}
     IERC20.approve(contract_address = token_0_address, spender = router_address, amount = Uint256(amount_token_0, 0))
     %{ stop_prank() %}
     
-    let amount_token_1 = 4 * token_1_multiplier
+    let amount_token_1 = 40 * token_1_multiplier
     %{ stop_prank = start_prank(ids.user_1_address, target_contract_address=ids.token_1_address) %}
     IERC20.approve(contract_address = token_1_address, spender = router_address, amount = Uint256(amount_token_1, 0))
     %{ stop_prank() %}
 
     %{ stop_prank = start_prank(ids.user_1_address, target_contract_address=ids.router_address) %}
-    let (amountA : Uint256, amountB : Uint256, liquidity : Uint256) = IRouter.add_liquidity(contract_address = router_address, tokenA = token_0_address, tokenB = token_1_address, amountADesired = Uint256(amount_token_0, 0), amountBDesired = Uint256(amount_token_1, 0), amountAMin = Uint256(1,0), amountBMin = Uint256(1,0), to = user_2_address, deadline = 0)
+    let (amountA : Uint256, amountB : Uint256, liquidity : Uint256) = IRouter.add_liquidity(contract_address = router_address, tokenA = token_0_address, tokenB = token_1_address, amountADesired = Uint256(amount_token_0, 0), amountBDesired = Uint256(amount_token_1, 0), amountAMin = Uint256(1,0), amountBMin = Uint256(1,0), to = user_1_address, deadline = 0)
     %{ stop_prank() %}
     
     let (user_1_initial_token_1_balance) = IERC20.balanceOf(contract_address = token_1_address, account = user_1_address)
@@ -192,16 +192,16 @@ func test_zap_out_to_pair_token{syscall_ptr: felt*, pedersen_ptr : HashBuiltin*,
     let (liquidity_token_decimals) = IERC20.decimals(contract_address=pair_address)
     let (liquidity_token_multiplier) = pow(10, liquidity_token_decimals)
     
-    # let _zap_out_amount = (liquidity / 2) * liquidity_token_multiplier
-    let zap_out_amount = Uint256(1, 0)      # Todo: Increase this to a reasonable amount
-
-    ### Zap Out
+    let (zap_out_amount,_) =  uint256_unsigned_div_rem(liquidity,Uint256(2,0))
+    # let zap_out_amount = Uint256(10000000000, 0)      # Todo: Increase this to a reasonable amount
+  
+    ## Zap Out
 
     %{ stop_prank = start_prank(ids.user_1_address, target_contract_address=ids.pair_address) %}
     IERC20.approve(contract_address = pair_address, spender = zapper_address, amount = zap_out_amount)
     %{ stop_prank() %}
 
-    %{ stop_prank = start_prank(context.user_1_address, target_contract_address=ids.zapper_address) %}
+    %{ stop_prank = start_prank(ids.user_1_address, target_contract_address=ids.zapper_address) %}
     
     let path0 : felt* = alloc()
     assert [path0] = token_0_address
@@ -225,6 +225,7 @@ func test_zap_out_to_pair_token{syscall_ptr: felt*, pedersen_ptr : HashBuiltin*,
 
     return ()
 end
+
 
 @external
 func test_zap_out_to_other_token{syscall_ptr: felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}():
@@ -272,7 +273,7 @@ func test_zap_out_to_other_token{syscall_ptr: felt*, pedersen_ptr : HashBuiltin*
     IERC20.mint(contract_address=token_1_address, recipient=user_2_address, amount=Uint256(amount_to_mint_token_1, 0))
     %{ stop_prank() %}
 
-    let amount_to_mint_token_2 = 100 * token_2_multiplier
+    let amount_to_mint_token_2 = 120 * token_2_multiplier
     %{ stop_prank = start_prank(context.deployer_address, target_contract_address=ids.token_2_address) %}
     IERC20.mint(contract_address=token_2_address, recipient=user_2_address, amount=Uint256(amount_to_mint_token_2, 0))
     %{ stop_prank() %}
@@ -341,7 +342,7 @@ func test_zap_out_to_other_token{syscall_ptr: felt*, pedersen_ptr : HashBuiltin*
     %{ stop_prank() %}
 
     %{ stop_prank = start_prank(ids.user_1_address, target_contract_address=ids.router_address) %}
-    let (amountA : Uint256, amountB : Uint256, liquidity : Uint256) = IRouter.add_liquidity(contract_address = router_address, tokenA = token_0_address, tokenB = token_1_address, amountADesired = Uint256(amount_token_0, 0), amountBDesired = Uint256(amount_token_1, 0), amountAMin = Uint256(1,0), amountBMin = Uint256(1,0), to = user_2_address, deadline = 0)
+    let (amountA : Uint256, amountB : Uint256, liquidity : Uint256) = IRouter.add_liquidity(contract_address = router_address, tokenA = token_0_address, tokenB = token_1_address, amountADesired = Uint256(amount_token_0, 0), amountBDesired = Uint256(amount_token_1, 0), amountAMin = Uint256(1,0), amountBMin = Uint256(1,0), to = user_1_address, deadline = 0)
     %{ stop_prank() %}
     
     let (user_1_initial_token_2_balance) = IERC20.balanceOf(contract_address = token_2_address, account = user_1_address)
@@ -351,8 +352,8 @@ func test_zap_out_to_other_token{syscall_ptr: felt*, pedersen_ptr : HashBuiltin*
     let (liquidity_token_decimals) = IERC20.decimals(contract_address=pair_address)
     let (liquidity_token_multiplier) = pow(10, liquidity_token_decimals)
     
-    # let _zap_out_amount = (liquidity / 2) * liquidity_token_multiplier
-    let zap_out_amount = Uint256(20000000, 0)      # Todo: Increase this to a reasonable amount
+    let (zap_out_amount,_) =  uint256_unsigned_div_rem(liquidity,Uint256(2,0))
+    # let zap_out_amount = Uint256(20000000, 0)      # Todo: Increase this to a reasonable amount
 
     ### Zap Out
 
@@ -365,11 +366,11 @@ func test_zap_out_to_other_token{syscall_ptr: felt*, pedersen_ptr : HashBuiltin*
 
     let path0 : felt* = alloc()
     assert [path0] = sorted_token_0_address
-    assert [path0 + 1] = token_1_address
+    assert [path0 + 1] = token_2_address
     
     let path1 : felt* = alloc()
     assert [path1] = sorted_token_1_address
-    assert [path1 + 1] = token_1_address
+    assert [path1 + 1] = token_2_address
     
     %{ stop_prank = start_prank(context.user_1_address, target_contract_address=ids.zapper_address) %}
     let (tokens_rec) = IZapperOut.zap_out(contract_address=zapper_address, to_token_address=token_2_address, from_pair_address=pair_address, incoming_lp=zap_out_amount, min_tokens_rec=Uint256(0, 0), path0_len=2, path0=path0, path1_len=2, path1=path1)
