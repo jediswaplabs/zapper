@@ -193,7 +193,6 @@ func test_zap_out_to_pair_token{syscall_ptr: felt*, pedersen_ptr : HashBuiltin*,
     let (liquidity_token_multiplier) = pow(10, liquidity_token_decimals)
     
     let (zap_out_amount,_) =  uint256_unsigned_div_rem(liquidity,Uint256(2,0))
-    # let zap_out_amount = Uint256(10000000000, 0)      # Todo: Increase this to a reasonable amount
   
     ## Zap Out
 
@@ -203,12 +202,14 @@ func test_zap_out_to_pair_token{syscall_ptr: felt*, pedersen_ptr : HashBuiltin*,
 
     %{ stop_prank = start_prank(ids.user_1_address, target_contract_address=ids.zapper_address) %}
     
+    let (sorted_token_0_address, sorted_token_1_address) = IRouter.sort_tokens(contract_address = router_address, tokenA = token_0_address, tokenB = token_1_address)
+
     let path0 : felt* = alloc()
-    assert [path0] = token_0_address
+    assert [path0] = sorted_token_0_address
     assert [path0 + 1] = token_1_address
     
     let path1 : felt* = alloc()
-    assert [path1] = token_1_address
+    assert [path1] = sorted_token_1_address
     assert [path1 + 1] = token_1_address
     let (tokens_rec) = IZapperOut.zap_out(contract_address=zapper_address, to_token_address=token_1_address, from_pair_address=pair_address, incoming_lp=zap_out_amount, min_tokens_rec=Uint256(0, 0), path0_len=2, path0=path0, path1_len=2, path1=path1)
     %{ stop_prank() %}
@@ -353,7 +354,6 @@ func test_zap_out_to_other_token{syscall_ptr: felt*, pedersen_ptr : HashBuiltin*
     let (liquidity_token_multiplier) = pow(10, liquidity_token_decimals)
     
     let (zap_out_amount,_) =  uint256_unsigned_div_rem(liquidity,Uint256(2,0))
-    # let zap_out_amount = Uint256(20000000, 0)      # Todo: Increase this to a reasonable amount
 
     ### Zap Out
 

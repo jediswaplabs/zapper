@@ -330,9 +330,6 @@ func test_platform_fees_zap_out{syscall_ptr: felt*, pedersen_ptr : HashBuiltin*,
     let (liquidity_token_decimals) = IERC20.decimals(contract_address=pair_address)
     let (liquidity_token_multiplier) = pow(10, liquidity_token_decimals)
     
-    %{
-        print(ids.liquidity.low)    # 2828427123746
-    %}
     # let _zap_out_amount = (liquidity / 2) * liquidity_token_multiplier
     let (zap_out_amount,_) =  uint256_unsigned_div_rem(liquidity,Uint256(2,0))
 
