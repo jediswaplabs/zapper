@@ -1,6 +1,9 @@
 .DS_Store
 .temp/
 
+# Artifacts
+artifacts/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -133,3 +136,7 @@ dmypy.json
 
 # vscode project settings
 .vscode/
+
+
+# git submodules
+.gitmodules
